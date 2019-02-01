@@ -5,3 +5,4 @@ authors = ["Julien SENON <julien.senon@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+yew = "0.5.0"

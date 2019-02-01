@@ -1,11 +1,3 @@
-[package]
-name = "demo-webapp"
-version = "0.1.0"
-authors = ["Julien SENON <julien.senon@gmail.com>"]
-edition = "2018"
-
-
-
 [workspace]
 members = [
     "frontend",
