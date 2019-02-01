@@ -2,9 +2,7 @@
 
 This is a demo WebApp written in Rust
 
-## Func
-
-- Frontend with rust webassembly
+- Frontend: written in Rust and compilled to WebAssembly
 - Backend TBD
 
 ## Prerequisite
@@ -41,7 +39,14 @@ Check installatio and rust version with:
 rustup show
 ```
 
-### Build
+## Build
 
+## Run
+
+Run webserver locally
+
+```sh
+cargo web start -p frontend --target wasm32-unknown-unknown
+```
 
 ### TODO
