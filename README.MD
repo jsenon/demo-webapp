@@ -1,5 +1,7 @@
 # Demo WebServer App
 
+**Currently in DRAFT**
+
 This is a demo WebApp written in Rust
 
 - Frontend: written in Rust and compilled to WebAssembly
@@ -43,10 +45,41 @@ rustup show
 
 ## Run
 
-Run webserver locally
+Run frontend webserver locally
 
 ```sh
 cargo web start -p frontend --target wasm32-unknown-unknown
 ```
 
+Run backend webserver locally
+
+```sh
+cargo run -p backend 
+```
+
+## Usage
+
+### Frontend
+
+Open web browser on http://localhost:8000
+
+### Backend
+
+Get version info
+
+```sh
+ curl -X GET http://localhost:3000/
+
+```
+
+Create User
+
+```sh
+ curl -X POST http://localhost:3000/user -d '{"user": "toto"}'
+```
+
 ### TODO
+
+- [ ] Link frontend to backend
+- [ ] DockerFile
+- [ ] Add opentracing func
