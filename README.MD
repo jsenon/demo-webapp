@@ -82,4 +82,4 @@ Create User
 
 - [ ] Link frontend to backend
 - [ ] DockerFile
-- [ ] Add opentracing func
+- [x] Add opentracing func
