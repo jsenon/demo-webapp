@@ -8,6 +8,7 @@ extern crate serde_json;
 
 use iron::prelude::*;
 use iron::status;
+use iron::Handler;
 use iron::mime::Mime;
 use std::io::Read;
 
@@ -17,6 +18,9 @@ use rustracing_jaeger::Tracer;
 use rustracing::sampler::AllSampler;
 
 
+use std::sync::{Arc, Mutex};
+
+
 
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -24,48 +28,65 @@ struct User {
     user: String
 }
 
-fn main() {
-    let mut test = String::new();
+struct MessageHandler {
+    message: String
+}
+impl Handler for MessageHandler {
+    fn handle(&self, _: &mut Request) -> IronResult<Response> {
+        Ok(Response::with((status::Ok, self.message.clone())))
+    }
+}
 
-    let router = router!{
-        id_1: get "/" => get_form,
-        id_2: post "/user" => post_form
-    };
-    let (tracer, span_rx) = Tracer::new(AllSampler);
-
-    {
+struct Root {
+    tracer: Arc<Mutex<Tracer>>,
+}
+impl Handler for Root {
+    fn handle(&self, req: &mut Request) -> IronResult<Response> {
+        let raw_content_type = req.headers.get_raw("");
+        let mut msg = String::new();
+        println!("Headers: {:?}", raw_content_type);
+        let tracer = self.tracer.lock().expect("Cannot acquire lock");
         let mut span = tracer
-                .span("Main")
-                .tag(Tag::new("version", "0.1.1"))
-                .start();
+            .span("RootBase")
+            .tag(Tag::new("App", "Demo-Webapp"))
+            .tag(Tag::new("Fn", "root"))
+            .start();
         span.log(|log| {
-            log.std().message("Entering in main fn");
+            log.std().message("Entering Get /");
         });
         {
             let mut span1 = tracer
-                .span("Test")
+                .span("CheckVersion")
                 .child_of(&span)
-                .tag(Tag::new("version", "0.1.1"))
+                .tag(Tag::new("App", "Demo-Webapp"))
+                .tag(Tag::new("Fn", "version"))
                 .start();
             span1.log(|log| {
-                log.std().message("Set Test");
+                log.std().message("Retrieve version");
             });
-             test.push_str("Version v0.1.2");  
+            msg.push_str("Version v0.1.0");
+
         }
+        Ok(Response::with((status::Ok,msg)))
     }
+}
 
-    std::thread::spawn(move || {
-        let reporter = JaegerCompactReporter::new("Demo-Webapp").unwrap();
-        for span in span_rx {
-            reporter.report(&[span]).unwrap();
-        }
-    });
-
-    println!("Serving on http://localhost:3000");
-    Iron::new(router).http("localhost:3000").unwrap();
-
-
-    fn post_form(request: &mut Request) -> IronResult<Response> {
+struct PostUser {
+    tracer: Arc<Mutex<Tracer>>,
+}
+impl Handler for PostUser {
+    fn handle(&self, request: &mut Request) -> IronResult<Response> {
+        let raw_content_type = request.headers.get_raw("");
+        println!("Headers: {:?}", raw_content_type);
+        let tracer = self.tracer.lock().expect("Cannot acquire lock");
+        let mut span = tracer
+            .span("PostUser")
+            .tag(Tag::new("App", "Demo-Webapp"))
+            .tag(Tag::new("Fn", "postuser"))
+            .start();
+        span.log(|log| {
+            log.std().message("Entering Get /");
+        });
         let mime = "application/json".parse::<Mime>().unwrap();
         let mut payload = String::new();
         
@@ -76,19 +97,38 @@ fn main() {
         println!("Deserialized: {:?}", deserialized);
 
         let result = format!("{} {}", "Succesfully create", deserialized.user);
-
         Ok(Response::with((mime, status::Ok, result)))
     }
-
-    fn get_form(req: &mut Request) -> IronResult<Response> {
-    
-        let mut ver = String::new();
-        let raw_content_type = req.headers.get_raw("");
-        println!("Headers: {:?}", raw_content_type);
-        ver.push_str("Version v0.1.0");
-        let mime = "application/json".parse::<Mime>().unwrap();
-        Ok(Response::with((mime, status::Ok, ver)))
-    }
+}
 
 
+fn main() {
+    let (tracer, span_rx) = Tracer::new(AllSampler);
+    let tracer_post = tracer.clone();  
+    let nospan = MessageHandler {
+        message: "This is a test!".to_string()
+    };
+    let root = Root {
+        tracer: Arc::new(Mutex::new(tracer)),
+    };
+
+    let postuser = PostUser {
+        tracer: Arc::new(Mutex::new(tracer_post)),
+    };
+
+    let router = router!{
+        id_1: get "/" => root,
+        id_2: post "/user" => postuser,
+        id_3: get "/nospan" => nospan,
+    };
+
+    std::thread::spawn(move || {
+        let reporter = JaegerCompactReporter::new("Demo-Webapp").unwrap();
+        for span in span_rx {
+            reporter.report(&[span]).unwrap();
+        }
+    });
+
+    println!("Serving on http://localhost:3000");
+    Iron::new(router).http("localhost:3000").unwrap();
 }
