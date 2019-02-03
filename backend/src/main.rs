@@ -11,21 +11,45 @@ use iron::status;
 use iron::mime::Mime;
 use std::io::Read;
 
+use rustracing::tag::Tag;
+use rustracing_jaeger::reporter::JaegerCompactReporter;
+use rustracing_jaeger::Tracer;
+use rustracing::sampler::AllSampler;
+
+
+
 
 #[derive(Serialize, Deserialize, Debug)]
 struct User {
     user: String
 }
 
-fn main()  {
+fn main() {
     let router = router!{
         id_1: get "/" => get_form,
         id_2: post "/user" => post_form
     };
-  
+    let (tracer, span_rx) = Tracer::new(AllSampler);
+
+    {
+        let mut span = tracer
+                .span("Main")
+                .tag(Tag::new("version", "0.1.1"))
+                .start();
+            span.log(|log| {
+                log.error().message("something wrong");
+            });
+
+    }
+
+    let span = span_rx.try_recv().unwrap();
+
+    let reporter = JaegerCompactReporter::new("Demo").unwrap();
+    reporter.report(&[span]).unwrap();
+
+
     println!("Serving on http://localhost:3000");
     Iron::new(router).http("localhost:3000").unwrap();
-
 
 
     fn post_form(request: &mut Request) -> IronResult<Response> {
@@ -52,7 +76,6 @@ fn main()  {
         let mime = "application/json".parse::<Mime>().unwrap();
         Ok(Response::with((mime, status::Ok, ver)))
     }
-
 
 
 }
