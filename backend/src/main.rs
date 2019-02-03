@@ -25,6 +25,8 @@ struct User {
 }
 
 fn main() {
+    let mut test = String::new();
+
     let router = router!{
         id_1: get "/" => get_form,
         id_2: post "/user" => post_form
@@ -36,17 +38,28 @@ fn main() {
                 .span("Main")
                 .tag(Tag::new("version", "0.1.1"))
                 .start();
-            span.log(|log| {
-                log.error().message("something wrong");
+        span.log(|log| {
+            log.std().message("Entering in main fn");
+        });
+        {
+            let mut span1 = tracer
+                .span("Test")
+                .child_of(&span)
+                .tag(Tag::new("version", "0.1.1"))
+                .start();
+            span1.log(|log| {
+                log.std().message("Set Test");
             });
-
+             test.push_str("Version v0.1.2");  
+        }
     }
 
-    let span = span_rx.try_recv().unwrap();
-
-    let reporter = JaegerCompactReporter::new("Demo").unwrap();
-    reporter.report(&[span]).unwrap();
-
+    std::thread::spawn(move || {
+        let reporter = JaegerCompactReporter::new("Demo-Webapp").unwrap();
+        for span in span_rx {
+            reporter.report(&[span]).unwrap();
+        }
+    });
 
     println!("Serving on http://localhost:3000");
     Iron::new(router).http("localhost:3000").unwrap();
