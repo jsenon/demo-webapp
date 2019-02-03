@@ -21,8 +21,6 @@ use rustracing::sampler::AllSampler;
 use std::sync::{Arc, Mutex};
 
 
-
-
 #[derive(Serialize, Deserialize, Debug)]
 struct User {
     user: String
@@ -41,10 +39,9 @@ struct Root {
     tracer: Arc<Mutex<Tracer>>,
 }
 impl Handler for Root {
-    fn handle(&self, req: &mut Request) -> IronResult<Response> {
-        let raw_content_type = req.headers.get_raw("");
+    fn handle(&self, _: &mut Request) -> IronResult<Response> {
         let mut msg = String::new();
-        println!("Headers: {:?}", raw_content_type);
+
         let tracer = self.tracer.lock().expect("Cannot acquire lock");
         let mut span = tracer
             .span("RootBase")
@@ -65,7 +62,6 @@ impl Handler for Root {
                 log.std().message("Retrieve version");
             });
             msg.push_str("Version v0.1.0");
-
         }
         Ok(Response::with((status::Ok,msg)))
     }
@@ -76,8 +72,6 @@ struct PostUser {
 }
 impl Handler for PostUser {
     fn handle(&self, request: &mut Request) -> IronResult<Response> {
-        let raw_content_type = request.headers.get_raw("");
-        println!("Headers: {:?}", raw_content_type);
         let tracer = self.tracer.lock().expect("Cannot acquire lock");
         let mut span = tracer
             .span("PostUser")
@@ -128,7 +122,6 @@ fn main() {
             reporter.report(&[span]).unwrap();
         }
     });
-
     println!("Serving on http://localhost:3000");
     Iron::new(router).http("localhost:3000").unwrap();
 }
